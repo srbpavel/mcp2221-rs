@@ -8,4 +8,5 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 embedded-hal = "1.0.0"
-rusb = "0.8.1"
+#rusb = "0.8.1"
+rusb = "0.9.4"

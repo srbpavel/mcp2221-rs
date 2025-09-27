@@ -139,7 +139,7 @@ impl AvailableDevice {
 
     /// Attempts to open the I2C device.
     pub fn open(&self, config: &Config) -> Result<Handle> {
-        let mut handle = self.open_device(config)?;
+        let handle = self.open_device(config)?;
         // Setting auto-detach will fail on platforms where it isn't supported
         // (Windows). So we ignore the returned error in this case. Provided no
         // driver has already claimed the device, it should be fine to continue.
@@ -162,7 +162,7 @@ impl AvailableDevice {
             // after we reset the device.
             let bus_number = self.device.bus_number();
 
-            let mut handle = self.device.open()?;
+            let handle = self.device.open()?;
             let _ = handle.set_auto_detach_kernel_driver(true);
             handle.claim_interface(MCP2221A_INTERFACE)?;
             let mut buffer = [0u8; MCP_TRANSFER_SIZE];
