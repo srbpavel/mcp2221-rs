@@ -2,7 +2,7 @@
 // This project is dual-licensed under Apache 2.0 and MIT terms.
 // See LICENSE-APACHE and LICENSE-MIT for details.
 
-use embedded_hal::blocking::i2c::Read;
+use embedded_hal::i2c::I2c;
 use std::time::Duration;
 
 fn main() {

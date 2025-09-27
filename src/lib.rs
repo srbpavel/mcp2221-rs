@@ -5,7 +5,7 @@
 //! Interface to MCP2221 and MCP2221A. Uses libusb, so no MCP2221 kernel module
 //! is required. Supports I2C and GPIO.
 
-use embedded_hal::blocking::i2c;
+use embedded_hal::i2c;
 use std::fmt::Display;
 use std::time::Duration;
 use std::time::Instant;
@@ -424,8 +424,18 @@ impl Handle {
     }
 }
 
-impl i2c::WriteRead for Handle {
+impl i2c::ErrorType for Handle {
     type Error = Error;
+}
+
+impl i2c::I2c for Handle {
+    fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        self.write_read_address(address, &[], buffer)
+    }
+
+    fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        self.write_read_address(address, bytes, &mut [])
+    }
 
     fn write_read(
         &mut self,
@@ -435,21 +445,23 @@ impl i2c::WriteRead for Handle {
     ) -> Result<(), Self::Error> {
         self.write_read_address(address, bytes, buffer)
     }
-}
 
-impl i2c::Write for Handle {
-    type Error = Error;
-
-    fn write(&mut self, address: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        self.write_read_address(address, bytes, &mut [])
-    }
-}
-
-impl i2c::Read for Handle {
-    type Error = Error;
-
-    fn read(&mut self, address: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        self.write_read_address(address, &[], buffer)
+    fn transaction(
+        &mut self,
+        address: u8,
+        operations: &mut [i2c::Operation<'_>],
+    ) -> Result<(), Self::Error> {
+        for operation in operations {
+            match operation {
+                i2c::Operation::Read(buffer) => {
+                    self.read(address, buffer)?;
+                }
+                i2c::Operation::Write(bytes) => {
+                    self.write(address, bytes)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -518,6 +530,16 @@ impl std::error::Error for Error {
         match self {
             Error::UsbError(e) => Some(e),
             _ => None,
+        }
+    }
+}
+
+impl i2c::Error for Error {
+    fn kind(&self) -> i2c::ErrorKind {
+        match self {
+            Error::Nack => i2c::ErrorKind::NoAcknowledge(i2c::NoAcknowledgeSource::Address),
+            Error::ReadTimeout | Error::WriteTimeout => i2c::ErrorKind::Other,
+            _ => i2c::ErrorKind::Other,
         }
     }
 }
