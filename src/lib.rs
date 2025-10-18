@@ -64,6 +64,8 @@ pub enum Error {
     SclLow,
     SdaLow,
     Nack,
+    //
+    HandleKernelDriver(rusb::Error),
 }
 
 /// An MCP device that has been opened. Supports I2C and GPIO operations.
@@ -115,7 +117,8 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             i2c_speed_hz: 400_000,
-            reset_on_open: true,
+            //reset_on_open: true,
+	    reset_on_open: false,
             timeout: DEFAULT_TIMEOUT,
         }
     }
@@ -145,7 +148,14 @@ impl AvailableDevice {
         // driver has already claimed the device, it should be fine to continue.
         // If some driver has claimed the device, then we'll fail on the next
         // line when we try to claim it.
-        let _ = handle.set_auto_detach_kernel_driver(true);
+
+	// docker usb error
+	//let _ = handle.set_auto_detach_kernel_driver(true);
+	if let Err(e) = handle.set_auto_detach_kernel_driver(true) {
+	    //error!("handle_kernel_error: {e:?}");
+	    return Err(Error::HandleKernelDriver(e))
+	}
+	
         handle.claim_interface(MCP2221A_INTERFACE)?;
         let mut i2c = Handle {
             handle,
@@ -163,8 +173,14 @@ impl AvailableDevice {
             let bus_number = self.device.bus_number();
 
             let handle = self.device.open()?;
-            let _ = handle.set_auto_detach_kernel_driver(true);
-            handle.claim_interface(MCP2221A_INTERFACE)?;
+
+	    // docker usb error
+	    // let _ = handle.set_auto_detach_kernel_driver(true);
+	    if let Err(e) = handle.set_auto_detach_kernel_driver(true) {
+		return Err(Error::HandleKernelDriver(e))
+	    }
+
+	    handle.claim_interface(MCP2221A_INTERFACE)?;
             let mut buffer = [0u8; MCP_TRANSFER_SIZE];
             buffer[..RESET_SEQUENCE.len()].copy_from_slice(&RESET_SEQUENCE);
             handle.write_interrupt(MCP_WRITE_ENDPOINT, &buffer, config.timeout)?;
@@ -563,6 +579,10 @@ impl Display for Error {
             Error::CommandFailed => write!(f, "Command failed"),
             Error::SclLow => write!(f, "SCL is low"),
             Error::SdaLow => write!(f, "SDA is low"),
+	    //
+	    Error::HandleKernelDriver(inner) => {
+		write!(f, "USB HandleKernelDriver error: {}", inner)
+	    },
         }
     }
 }
